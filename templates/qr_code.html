@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero animate-in" style="text-align: center; padding: 3rem 0 1rem;">
+    <h1>Asset Tag Ready!</h1>
+    <p style="color: var(--text-dim); max-width: 600px; margin: 0 auto;">Print this out and stick it to your {{ title }}.</p>
+</div>
+
+<div class="form-container animate-in" style="max-width: 500px; margin: 2rem auto; animation-delay: 0.1s; text-align: center;">
+    <div class="glass" style="padding: 2rem; border-radius: 20px;">
+        <h3 style="margin-bottom: 1rem; color: var(--primary);">{{ title }}</h3>
+        <img src="data:image/png;base64,{{ qr_base64 }}" alt="QR Code" style="border-radius: 12px; margin-bottom: 1rem; width: 250px; height: 250px;">
+        
+        <p style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 1.5rem; word-break: break-all;">
+            Target URL: {{ qr_url }}
+        </p>
+
+        <a href="{{ url_for('profile') }}" class="btn-post" style="text-decoration: none; display: inline-block;">Back to Profile</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .claim-proof {
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 8px;
+        padding: 0.75rem;
+        font-style: italic;
+        color: var(--text-dim);
+        font-size: 0.9rem;
+        line-height: 1.6;
+        margin-bottom: 1rem;
+    }
+</style>
+
+<div class="hero animate-in" style="text-align: left; padding: 2rem 0 1rem;">
+    <a href="{{ url_for('profile') }}" style="color: var(--text-dim); text-decoration: none; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+        <i class="fas fa-arrow-left"></i> Back to Dashboard
+    </a>
+    <div style="display: flex; gap: 2rem; align-items: center; flex-wrap: wrap;">
+        <div>
+            <h1 style="font-size: 2.2rem; font-weight: 800;">Review Claims</h1>
+            <p style="color: var(--text-dim); margin-top: 0.5rem;">Claims for: <strong style="color: var(--primary);">{{ item.title }}</strong></p>
+        </div>
+        <div style="display: flex; gap: 1rem; margin-left: auto;">
+            <div class="glass" style="padding: 1rem 1.5rem; text-align: center; border-radius: 12px;">
+                <div style="font-size: 1.5rem; font-weight: 800; color: var(--secondary);">{{ item.claims|length }}</div>
+                <div style="font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase;">Total Claims</div>
+            </div>
+            <div class="glass" style="padding: 1rem 1.5rem; text-align: center; border-radius: 12px;">
+                <div style="font-size: 1.5rem; font-weight: 800; color: #10b981;">{{ item.claims|selectattr('status', 'equalto', 'pending')|list|length }}</div>
+                <div style="font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase;">Pending</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Item Summary Card -->
+<div class="glass animate-in" style="padding: 1.5rem; border-radius: 16px; margin-bottom: 2.5rem; display: flex; gap: 1.5rem; align-items: center; animation-delay: 0.1s; border-left: 4px solid var(--accent);">
+    {% if item.photo_filename %}
+        <img src="{{ url_for('static', filename='uploads/' + item.photo_filename) }}" style="width: 90px; height: 90px; border-radius: 12px; object-fit: cover; flex-shrink: 0;">
+    {% else %}
+        <div class="glass" style="width: 90px; height: 90px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <i class="fas fa-image fa-2x" style="color: var(--text-dim);"></i>
+        </div>
+    {% endif %}
+    <div style="flex: 1;">
+        <span class="badge {{ 'badge-lost' if item.item_type == 'lost' else 'badge-found' }}">{{ item.item_type }}</span>
+        <h3 style="font-size: 1.25rem; margin: 0.4rem 0;">{{ item.title }}</h3>
+        <p style="color: var(--text-dim); font-size: 0.85rem;"><i class="fas fa-map-marker-alt" style="color: var(--primary); margin-right: 0.4rem;"></i>{{ item.location }} &nbsp;|&nbsp; <i class="fas fa-tag" style="color: var(--accent); margin-right: 0.4rem;"></i>{{ item.category }}</p>
+    </div>
+    <div>
+        <span class="status-indicator status-{{ item.status }}" style="text-transform: capitalize; font-size: 0.85rem; padding: 0.4rem 1rem;">{{ item.status }}</span>
+    </div>
+</div>
+
+{% if item.status == 'resolved' %}
+<div class="glass animate-in" style="padding: 3rem; text-align: center; border-radius: 20px; border: 1px solid #10b981;">
+    <i class="fas fa-check-circle fa-3x" style="color: #10b981; margin-bottom: 1rem;"></i>
+    <h2 style="color: #10b981; margin-bottom: 0.5rem;">Item Successfully Resolved!</h2>
+    <p style="color: var(--text-dim);">This item has been marked as resolved. A claim was approved and all other claimants notified.</p>
+</div>
+{% else %}
+
+{% if not item.claims %}
+<div class="glass animate-in" style="padding: 5rem; text-align: center; border-radius: 20px; animation-delay: 0.2s;">
+    <i class="fas fa-inbox fa-3x" style="color: var(--text-dim); margin-bottom: 1rem;"></i>
+    <h2 style="color: var(--text-dim);">No Claims Yet</h2>
+    <p style="color: var(--text-dim); margin-top: 0.5rem;">No one has submitted a claim for this item yet.</p>
+</div>
+{% else %}
+
+<h2 style="font-size: 1.5rem; margin-bottom: 1.5rem; border-left: 4px solid var(--primary); padding-left: 1rem;">Claim Requests</h2>
+
+<div class="claims-comparison">
+    {% for claim in item.claims %}
+    <div class="glass glass-card claim-card animate-in {{ claim.status }}" style="padding: 1.75rem; border-radius: 20px; animation-delay: {{ loop.index0 * 0.1 }}s;">
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;">
+            <div>
+                <div style="width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--accent)); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.25rem; margin-bottom: 0.75rem;">
+                    {{ claim.claimer_name[0]|upper }}
+                </div>
+                <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.2rem;">{{ claim.claimer_name }}</h3>
+                <p style="font-size: 0.8rem; color: var(--text-dim);">{{ claim.claimer_email }}</p>
+            </div>
+            <div style="text-align: right;">
+                {% if claim.status == 'pending' %}
+                    <span class="badge" style="background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3);">⏳ Pending</span>
+                {% elif claim.status == 'approved' %}
+                    <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">✅ Approved</span>
+                {% elif claim.status == 'rejected' %}
+                    <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);">❌ Rejected</span>
+                {% endif %}
+                <p style="font-size: 0.75rem; color: var(--text-dim); margin-top: 0.5rem;">{{ claim.created_at.strftime('%d %b %Y') }}</p>
+            </div>
+        </div>
+
+        <!-- Proof -->
+        <div style="margin-bottom: 1.5rem;">
+            <p style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; font-weight: 600; margin-bottom: 0.5rem; letter-spacing: 0.05em;">
+                <i class="fas fa-shield-alt" style="margin-right: 0.4rem; color: var(--accent);"></i>Proof of Ownership
+            </p>
+            <div class="claim-proof">"{{ claim.description_proof }}"</div>
+        </div>
+
+        <!-- Actions -->
+        {% if claim.status == 'pending' %}
+        <div style="display: flex; gap: 0.75rem;">
+            <form action="{{ url_for('approve_claim', claim_id=claim.id) }}" method="POST" style="flex: 1;" onsubmit="return confirm('Approve this claim? The item will be marked as resolved and all other claims will be rejected.');">
+                <button type="submit" class="btn-submit" style="padding: 0.75rem; border-radius: 10px; background: linear-gradient(to right, #10b981, #059669);">
+                    <i class="fas fa-check"></i> Approve
+                </button>
+            </form>
+            <form action="{{ url_for('reject_claim', claim_id=claim.id) }}" method="POST" style="flex: 1;" onsubmit="return confirm('Reject this claim?');">
+                <button type="submit" class="btn-detail" style="width: 100%; border-color: #ef4444; color: #ef4444;">
+                    <i class="fas fa-times"></i> Reject
+                </button>
+            </form>
+        </div>
+        {% elif claim.status == 'approved' %}
+        <div style="padding: 0.75rem; background: rgba(16, 185, 129, 0.1); border-radius: 10px; text-align: center; color: #10b981; font-size: 0.9rem; font-weight: 600;">
+            <i class="fas fa-check-circle"></i> This claim was approved — item returned!
+        </div>
+        {% else %}
+        <div style="padding: 0.75rem; background: rgba(239, 68, 68, 0.08); border-radius: 10px; text-align: center; color: #ef4444; font-size: 0.9rem;">
+            <i class="fas fa-times-circle"></i> Claim rejected
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endif %}
+
+{% endblock %}

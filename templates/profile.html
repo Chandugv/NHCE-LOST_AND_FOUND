@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .notif-read { opacity: 0.6; }
+    .notif-unread { border-left: 4px solid var(--primary); }
+    .icon-read { color: var(--text-dim); }
+    .icon-unread { color: var(--primary); }
+</style>
+<div class="hero animate-in" style="text-align: left; padding: 2rem 0; display: flex; justify-content: space-between; align-items: flex-end;">
+    <div>
+        <h1>Welcome, {{ user.username }}</h1>
+        <p style="color: var(--text-dim);">Member since {{ user.id }} | {{ user.department or 'General' }} Dept</p>
+    </div>
+    <div style="display: flex; gap: 1rem;">
+        <div class="glass" style="padding: 1rem 2rem; text-align: center;">
+            <div style="font-size: 1.5rem; font-weight: 800; color: #fbbf24;">{{ user.karma_points }}</div>
+            <div style="font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase;">Karma Points</div>
+        </div>
+        <div class="glass" style="padding: 1rem 2rem; text-align: center;">
+            <div style="font-size: 1.5rem; font-weight: 800; color: var(--primary);">{{ items|length }}</div>
+            <div style="font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase;">Total Posts</div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 0.5rem; justify-content: center;">
+            <a href="{{ url_for('generate_qr') }}" class="btn-post" style="padding: 0.8rem 1.5rem; text-decoration: none; font-size: 0.9rem; text-align: center;">
+                <i class="fas fa-qrcode"></i> Asset Tag
+            </a>
+        </div>
+    </div>
+</div>
+
+<div id="notifications" style="margin-top: 2rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h2 style="font-size: 1.5rem; border-left: 4px solid var(--accent); padding-left: 1rem;">Recent Notifications</h2>
+        {% if user_notifications|selectattr('is_read', 'equalto', false)|list|length > 0 %}
+            <form action="{{ url_for('mark_notifications_read') }}" method="POST">
+                <button type="submit" style="background: none; border: 1px solid var(--glass-border); color: var(--text-dim); padding: 0.4rem 1rem; border-radius: 20px; font-size: 0.8rem; cursor: pointer; transition: 0.3s ease;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-dim)'">
+                    Mark all as read
+                </button>
+            </form>
+        {% endif %}
+    </div>
+    
+    <div class="notification-list" style="display: flex; flex-direction: column; gap: 0.8rem;">
+        {% for notif in user_notifications %}
+            <div class="glass {% if notif.is_read %}notif-read{% else %}notif-unread{% endif %}" style="padding: 1.2rem; display: flex; align-items: center; gap: 1rem;">
+                <div class="{% if notif.is_read %}icon-read{% else %}icon-unread{% endif %}">
+                    <i class="fas {{ 'fa-check' if notif.is_read else 'fa-bell' }}"></i>
+                </div>
+                <div style="flex: 1;">
+                    <p style="font-size: 0.95rem; margin-bottom: 0.2rem;">{{ notif.message }}</p>
+                    <p style="font-size: 0.75rem; color: var(--text-dim);">{{ notif.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                </div>
+                {% if notif.link %}
+                    <a href="{{ notif.link }}" class="btn-detail" style="font-size: 0.75rem; padding: 0.4rem 0.8rem;">View Match</a>
+                {% endif %}
+            </div>
+        {% else %}
+            <p style="color: var(--text-dim); text-align: center; padding: 2rem;">No notifications yet.</p>
+        {% endfor %}
+    </div>
+</div>
+
+<h2 style="margin: 3rem 0 2rem; font-size: 1.5rem; border-left: 4px solid var(--secondary); padding-left: 1rem;">My Active Postings</h2>
+
+<div class="item-grid" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));">
+    {% for item in items %}
+    <div class="glass glass-card item-card animate-in">
+        <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+            {% if item.photo_filename %}
+                <img src="{{ url_for('static', filename='uploads/' + item.photo_filename) }}" style="width: 80px; height: 80px; border-radius: 10px; object-fit: cover;">
+            {% else %}
+                <div class="glass" style="width: 80px; height: 80px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-image"></i>
+                </div>
+            {% endif %}
+            <div style="flex: 1;">
+                <span class="badge {{ 'badge-lost' if item.item_type == 'lost' else 'badge-found' }}" style="font-size: 0.6rem;">
+                    {{ item.item_type }}
+                </span>
+                <h3 style="font-size: 1.1rem; margin-top: 0.2rem;">{{ item.title }}</h3>
+                <p style="font-size: 0.8rem; color: var(--text-dim);">{{ item.status|capitalize }}</p>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap;">
+            {% set pending_claims = item.claims|selectattr('status', 'equalto', 'pending')|list %}
+            {% if pending_claims|length > 0 %}
+                <a href="{{ url_for('review_claims', item_id=item.id) }}" class="btn-detail" style="flex: 1; text-align: center; border-color: #fbbf24; color: #fbbf24; font-size: 0.8rem; padding: 0.5rem;">
+                    <i class="fas fa-gavel"></i> Review {{ pending_claims|length }} Claim{{ 's' if pending_claims|length > 1 }}
+                </a>
+            {% elif item.status == 'open' %}
+                <form action="{{ url_for('update_status', item_id=item.id, status='resolved') }}" method="POST" style="flex: 1;">
+                    <button type="submit" class="btn-detail" style="width: 100%; border-color: var(--primary); color: var(--primary); font-size: 0.8rem; padding: 0.5rem;">Mark Resolved</button>
+                </form>
+            {% endif %}
+            <form action="{{ url_for('delete_item', item_id=item.id) }}" method="POST" style="flex: 1;" onsubmit="return confirm('Delete this post?');">
+                <button type="submit" class="btn-detail" style="width: 100%; border-color: var(--danger); color: var(--danger); font-size: 0.8rem; padding: 0.5rem;">Delete</button>
+            </form>
+        </div>
+    </div>
+    {% else %}
+    <div style="grid-column: 1 / -1; text-align: center; padding: 5rem 0;" class="glass">
+        <p style="color: var(--text-dim);">You haven't posted any items yet.</p>
+        <a href="{{ url_for('post_item') }}" style="color: var(--primary); text-decoration: none; display: inline-block; margin-top: 1rem;">Start by posting something!</a>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

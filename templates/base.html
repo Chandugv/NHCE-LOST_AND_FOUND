@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NHCE | Lost & Found System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .flash-message { border-left: 4px solid var(--secondary); }
+        .flash-success { border-left-color: var(--primary) !important; }
+    </style>
+</head>
+<body>
+    <nav class="glass">
+        <div class="logo" style="display: flex; align-items: center; gap: 10px;">
+            <img src="https://newhorizoncollegeofengineering.in/wp-content/uploads/2022/05/logo-nhce.png" alt="NHCE Logo" style="height: 40px; filter: brightness(0) invert(1);">
+            <span>NHCE Lost & Found</span>
+        </div>
+        <ul class="nav-links">
+            <li><a href="{{ url_for('index') }}">Browse</a></li>
+            <li><a href="{{ url_for('index', type='lost') }}">Lost</a></li>
+            <li><a href="{{ url_for('index', type='found') }}">Found</a></li>
+            {% if session.get('user_id') %}
+                <li style="position: relative;">
+                    <a href="{{ url_for('profile') }}#notifications" title="Notifications">
+                        <i class="fas fa-bell"></i>
+                        {% set unread_count = user_notifications|selectattr('is_read', 'equalto', false)|list|length if user_notifications else 0 %}
+                        {% if unread_count > 0 %}
+                            <span style="position: absolute; top: -5px; right: -10px; background: var(--danger); color: white; border-radius: 50%; padding: 2px 6px; font-size: 0.6rem; font-weight: 800;">{{ unread_count }}</span>
+                        {% endif %}
+                    </a>
+                </li>
+                <li><a href="{{ url_for('karma_shop') }}"><i class="fas fa-star" style="color: #fbbf24;"></i> Perks Shop</a></li>
+                <li><a href="{{ url_for('profile') }}">My Dashboard</a></li>
+                {% if session.get('is_admin') %}
+                    <li><a href="{{ url_for('admin_dashboard') }}">Admin Panel</a></li>
+                {% endif %}
+                <li><a href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i></a></li>
+            {% else %}
+                <li><a href="{{ url_for('login') }}">Login</a></li>
+                <li><a href="{{ url_for('register') }}">Register</a></li>
+            {% endif %}
+        </ul>
+        <a href="{{ url_for('post_item') }}" class="btn-post">Post Item</a>
+    </nav>
+
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="glass flash-message flash-{{ category }}" style="padding: 1rem; margin-bottom: 2rem;">
+                {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer style="text-align: center; padding: 3rem 0; color: var(--text-dim); font-size: 0.9rem;">
+        &copy; 2024 New Horizon College of Engineering. Crafted for Marathahalli Campus <span style="color: var(--secondary)">❤</span>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

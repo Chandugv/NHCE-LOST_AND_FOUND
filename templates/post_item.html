@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="form-container glass animate-in">
+    <h2 style="font-size: 2.2rem; font-weight: 800; margin-bottom: 2rem; color: var(--primary);">Post an Item</h2>
+    
+    <form action="{{ url_for('post_item') }}" method="POST" enctype="multipart/form-data">
+        <div class="form-group">
+            <label>Item Type</label>
+            <div style="display: flex; gap: 1rem;">
+                <label style="flex: 1; padding: 1.2rem; border-radius: 12px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); cursor: pointer; text-align: center; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" class="glass-card">
+                    <input type="radio" name="item_type" value="lost" required {{ 'checked' if prefill_type != 'found' }}>
+                    <span>Lost</span>
+                </label>
+                <label style="flex: 1; padding: 1.2rem; border-radius: 12px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); cursor: pointer; text-align: center; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" class="glass-card">
+                    <input type="radio" name="item_type" value="found" required {{ 'checked' if prefill_type == 'found' }}>
+                    <span>Found</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Item Name</label>
+            <input type="text" name="title" placeholder="e.g., iPhone 13, Navy Blue Bag" required value="{{ prefill_title }}">
+        </div>
+
+        <div class="form-group">
+            <label>Description</label>
+            <textarea name="description" placeholder="Provide as much detail as possible..." rows="4" required>{{ prefill_desc }}</textarea>
+        </div>
+
+        <div style="display: flex; gap: 1rem;">
+            <div class="form-group" style="flex: 1;">
+                <label>Category</label>
+                <select name="category" required>
+                    <option value="" disabled selected>Select category</option>
+                    <option value="Electronics">Electronics</option>
+                    <option value="ID Cards">ID Cards</option>
+                    <option value="Stationery">Stationery</option>
+                    <option value="Bags">Bags</option>
+                    <option value="Keys">Keys</option>
+                    <option value="Others">Others</option>
+                </select>
+            </div>
+            <div class="form-group" style="flex: 1;">
+                <label>Location</label>
+                <select name="location" required>
+                    <option value="" disabled selected>Select location</option>
+                    <option value="Chatrapati Shivaji Block">Chatrapati Shivaji Block</option>
+                    <option value="Hemu Kalani Block">Hemu Kalani Block</option>
+                    <option value="Netaji Block">Netaji Block</option>
+                    <option value="Udupi Canteen">Udupi Canteen</option>
+                    <option value="Tango">Tango</option>
+                    <option value="Munch">Munch</option>
+                    <option value="Library">Library</option>
+                    <option value="Others">Others</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label style="color: var(--text-dim); font-size: 0.9rem; margin-bottom: 0.5rem; display: block;">Interactive Campus Map Hotspots (Click to select)</label>
+            <div class="map-grid">
+                <div class="map-block" data-location="Chatrapati Shivaji Block">
+                    <i class="fas fa-building"></i>
+                    <span>Shivaji Block</span>
+                </div>
+                <div class="map-block" data-location="Hemu Kalani Block">
+                    <i class="fas fa-university"></i>
+                    <span>Hemu Kalani</span>
+                </div>
+                <div class="map-block" data-location="Netaji Block">
+                    <i class="fas fa-school"></i>
+                    <span>Netaji Block</span>
+                </div>
+                <div class="map-block" data-location="Library">
+                    <i class="fas fa-book-reader"></i>
+                    <span>Library</span>
+                </div>
+                <div class="map-block" data-location="Udupi Canteen">
+                    <i class="fas fa-coffee"></i>
+                    <span>Udupi Canteen</span>
+                </div>
+                <div class="map-block" data-location="Tango">
+                    <i class="fas fa-pizza-slice"></i>
+                    <span>Tango</span>
+                </div>
+                <div class="map-block" data-location="Munch">
+                    <i class="fas fa-hamburger"></i>
+                    <span>Munch</span>
+                </div>
+                <div class="map-block" data-location="Others">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <span>Others</span>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                const mapBlocks = document.querySelectorAll('.map-block');
+                const locationSelect = document.querySelector('select[name="location"]');
+
+                // Map block click handler
+                mapBlocks.forEach(block => {
+                    block.addEventListener('click', () => {
+                        const loc = block.getAttribute('data-location');
+                        locationSelect.value = loc;
+                        
+                        mapBlocks.forEach(b => b.classList.remove('active'));
+                        block.classList.add('active');
+                    });
+                });
+
+                // Dropdown change handler
+                locationSelect.addEventListener('change', () => {
+                    const selectedVal = locationSelect.value;
+                    mapBlocks.forEach(b => {
+                        if (b.getAttribute('data-location') === selectedVal) {
+                            b.classList.add('active');
+                        } else {
+                            b.classList.remove('active');
+                        }
+                    });
+                });
+            });
+        </script>
+
+        <div class="form-group">
+            <label>Your Email (To receive notifications)</label>
+            <input type="email" name="poster_email" placeholder="e.g., yourname@college.edu" required>
+        </div>
+
+        <div class="form-group">
+            <label>Upload Photo (Optional)</label>
+            <div style="position: relative; overflow: hidden; display: inline-block; width: 100%;">
+                <input type="file" name="photo" id="photo_input" accept="image/*" style="opacity: 0; position: absolute; top: 0; left: 0; cursor: pointer; height: 100%; width: 100%;">
+                <div id="file_preview_btn" style="padding: 1.5rem; text-align: center; border: 2px dashed var(--glass-border); border-radius: 12px; color: var(--text-dim); transition: 0.3s ease;">
+                    <i class="fas fa-cloud-upload-alt fa-2x" style="margin-bottom: 0.5rem;"></i><br>
+                    <span>Click to upload image</span>
+                </div>
+            </div>
+            <div id="preview_container" style="display: none; margin-top: 1rem; position: relative;">
+                <img id="image_preview" src="" style="width: 100%; border-radius: 12px; border: 1px solid var(--primary); object-fit: cover; height: 300px;">
+                <button type="button" id="remove_preview" style="position: absolute; top: 10px; right: 10px; padding: 0.5rem 1rem; border-radius: 5px; background: rgba(244, 63, 94, 0.8); border: none; color: #fff; cursor: pointer;">Remove</button>
+            </div>
+        </div>
+
+        <button type="submit" class="btn-submit">Submit Post</button>
+    </form>
+</div>
+
+<script>
+    document.getElementById('photo_input').onchange = function(evt) {
+        const [file] = evt.target.files
+        if (file) {
+            document.getElementById('image_preview').src = URL.createObjectURL(file)
+            document.getElementById('preview_container').style.display = 'block'
+            document.getElementById('file_preview_btn').style.display = 'none'
+        }
+    }
+    document.getElementById('remove_preview').onclick = function() {
+        document.getElementById('photo_input').value = ""
+        document.getElementById('preview_container').style.display = 'none'
+        document.getElementById('file_preview_btn').style.display = 'block'
+    }
+</script>
+{% endblock %}

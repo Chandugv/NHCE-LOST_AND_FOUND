@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero animate-in">
+    <h1>Find Your Belongings. <br><span style="color: var(--primary)">Fast. Free. Seamless.</span></h1>
+    <p>A modern portal for the <strong>New Horizon College of Engineering</strong> campus.</p>
+    
+    <div class="search-wrap glass" style="margin: 2rem auto; max-width: 800px; padding: 1.5rem; display: flex; gap: 1rem;">
+        <form action="{{ url_for('index') }}" method="GET" style="display: flex; flex: 1; gap: 1rem; width: 100%;">
+            <input type="text" name="q" placeholder="Search by description or keyword..." value="{{ query }}" class="glass" style="flex: 2; padding: 1rem; color: #fff; border: 1px solid var(--glass-border); border-radius: 12px;">
+            <select name="category" class="glass" style="flex: 1; padding: 1rem; color: #fff; border: 1px solid var(--glass-border); border-radius: 12px; background: rgba(0,0,0,0.3);">
+                <option value="">All Categories</option>
+                <option value="Electronics" {{ 'selected' if category == 'Electronics' }}>Electronics</option>
+                <option value="ID Cards" {{ 'selected' if category == 'ID Cards' }}>ID Cards</option>
+                <option value="Stationery" {{ 'selected' if category == 'Stationery' }}>Stationery</option>
+                <option value="Bags" {{ 'selected' if category == 'Bags' }}>Bags</option>
+                <option value="Keys" {{ 'selected' if category == 'Keys' }}>Keys</option>
+                <option value="Others" {{ 'selected' if category == 'Others' }}>Others</option>
+            </select>
+            <select name="location" class="glass" style="flex: 1; padding: 1rem; color: #fff; border: 1px solid var(--glass-border); border-radius: 12px; background: rgba(0,0,0,0.3);">
+                <option value="">All Locations</option>
+                <option value="Chatrapati Shivaji Block" {{ 'selected' if location == 'Chatrapati Shivaji Block' }}>Chatrapati Shivaji Block</option>
+                <option value="Hemu Kalani Block" {{ 'selected' if location == 'Hemu Kalani Block' }}>Hemu Kalani Block</option>
+                <option value="Netaji Block" {{ 'selected' if location == 'Netaji Block' }}>Netaji Block</option>
+                <option value="Udupi Canteen" {{ 'selected' if location == 'Udupi Canteen' }}>Udupi Canteen</option>
+                <option value="Tango" {{ 'selected' if location == 'Tango' }}>Tango</option>
+                <option value="Munch" {{ 'selected' if location == 'Munch' }}>Munch</option>
+                <option value="Library" {{ 'selected' if location == 'Library' }}>Library</option>
+            </select>
+            <button type="submit" class="btn-post" style="border: none; cursor: pointer;">Search</button>
+        </form>
+    </div>
+
+    <!-- Campus Map Filter Hotspots -->
+    <div class="campus-map-container" style="max-width: 800px; margin: 1.5rem auto 0; text-align: left;">
+        <label style="color: var(--text-dim); font-size: 0.9rem; margin-bottom: 0.5rem; display: block; font-weight: 500;">Filter by Campus Block Hotspot:</label>
+        <div class="map-grid">
+            <div class="map-block {% if location == 'Chatrapati Shivaji Block' %}active{% endif %}" data-location="Chatrapati Shivaji Block">
+                <i class="fas fa-building"></i>
+                <span>Shivaji Block</span>
+            </div>
+            <div class="map-block {% if location == 'Hemu Kalani Block' %}active{% endif %}" data-location="Hemu Kalani Block">
+                <i class="fas fa-university"></i>
+                <span>Hemu Kalani</span>
+            </div>
+            <div class="map-block {% if location == 'Netaji Block' %}active{% endif %}" data-location="Netaji Block">
+                <i class="fas fa-school"></i>
+                <span>Netaji Block</span>
+            </div>
+            <div class="map-block {% if location == 'Library' %}active{% endif %}" data-location="Library">
+                <i class="fas fa-book-reader"></i>
+                <span>Library</span>
+            </div>
+            <div class="map-block {% if location == 'Udupi Canteen' %}active{% endif %}" data-location="Udupi Canteen">
+                <i class="fas fa-coffee"></i>
+                <span>Udupi Canteen</span>
+            </div>
+            <div class="map-block {% if location == 'Tango' %}active{% endif %}" data-location="Tango">
+                <i class="fas fa-pizza-slice"></i>
+                <span>Tango</span>
+            </div>
+            <div class="map-block {% if location == 'Munch' %}active{% endif %}" data-location="Munch">
+                <i class="fas fa-hamburger"></i>
+                <span>Munch</span>
+            </div>
+            <div class="map-block {% if location == '' or location == 'Others' %}active{% endif %}" data-location="">
+                <i class="fas fa-map-marker-alt"></i>
+                <span>All Locations</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const mapBlocks = document.querySelectorAll('.map-block');
+            const locationSelect = document.querySelector('select[name="location"]');
+            const searchForm = document.querySelector('.search-wrap form');
+
+            mapBlocks.forEach(block => {
+                block.addEventListener('click', () => {
+                    const loc = block.getAttribute('data-location');
+                    locationSelect.value = loc;
+                    
+                    mapBlocks.forEach(b => b.classList.remove('active'));
+                    block.classList.add('active');
+
+                    // Automatically submit search filter
+                    searchForm.submit();
+                });
+            });
+        });
+    </script>
+</section>
+
+{% if top_users %}
+<div class="leaderboard-wrap" style="max-width: 800px; margin: 0 auto 2rem; padding: 0 1rem;">
+    <div class="glass" style="padding: 1.5rem; border-radius: 12px; display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <i class="fas fa-trophy fa-2x" style="color: #fbbf24;"></i>
+            <div>
+                <h2 style="font-size: 1.2rem; margin: 0;">Campus Heroes Leaderboard</h2>
+                <p style="font-size: 0.8rem; color: var(--text-dim); margin: 0;">Top students returning lost items</p>
+            </div>
+        </div>
+        <div style="display: flex; gap: 1rem;">
+            {% for u in top_users %}
+                <div style="text-align: center;">
+                    <div style="width: 40px; height: 40px; border-radius: 50%; background: var(--glass-bg); border: 2px solid var(--primary); display: flex; align-items: center; justify-content: center; font-weight: bold; margin-bottom: 0.2rem;">
+                        {{ u.username[0]|upper }}
+                    </div>
+                    <div style="font-size: 0.7rem;">{{ u.karma_points }} pts</div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="item-grid">
+    {% for item in items %}
+    <div class="glass glass-card item-card animate-in" style="animation-delay: {{ (loop.index0 * 0.1) }}s;">
+        {% if item.photo_filename %}
+            <img src="{{ url_for('static', filename='uploads/' + item.photo_filename) }}" alt="{{ item.title }}" class="item-img">
+        {% else %}
+            <div class="glass" style="height: 200px; display: flex; align-items: center; justify-content: center; border-radius: 12px; margin-bottom: 1rem; color: var(--text-dim);">
+                <i class="fas fa-image fa-3x"></i>
+            </div>
+        {% endif %}
+        
+        <span class="badge {{ 'badge-lost' if item.item_type == 'lost' else 'badge-found' }}">
+            {{ item.item_type }}
+        </span>
+        
+        <h3 class="item-title">{{ item.title }}</h3>
+        <p class="item-desc">{{ item.description }}</p>
+        
+        <div style="margin-bottom: 1.5rem; display: flex; align-items: center; color: var(--text-dim); font-size: 0.8rem;">
+            <i class="fas fa-map-marker-alt" style="margin-right: 0.5rem; color: var(--primary);"></i> {{ item.location }}
+        </div>
+        
+        <a href="{{ url_for('item_detail', item_id=item.id) }}" class="btn-detail">View Details</a>
+    </div>
+    {% else %}
+    <div style="grid-column: 1 / -1; text-align: center; padding: 10rem 0;">
+        <i class="fas fa-box-open fa-3x" style="color: var(--text-dim); margin-bottom: 1rem;"></i>
+        <p style="color: var(--text-dim);">No items found matching your criteria.</p>
+        <a href="{{ url_for('index') }}" style="color: var(--primary); text-decoration: none;">Clear filters</a>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

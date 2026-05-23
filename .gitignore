@@ -1,0 +1,20 @@
+# Python environment
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment files
+.env
+.env.*
+
+# MacOS
+.DS_Store
+
+# Flask instance folder
+instance/
+
+# Editor files
+.vscode/
+.idea/

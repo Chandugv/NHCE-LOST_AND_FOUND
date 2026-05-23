@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero animate-in" style="text-align: center; padding: 3rem 0 1rem;">
+    <h1>Asset Tag Pre-registration</h1>
+    <p style="color: var(--text-dim); max-width: 600px; margin: 0 auto;">Generate a unique QR code to stick on your valuable belongings. If someone finds it, they just scan the code to notify you instantly!</p>
+</div>
+
+<div class="form-container animate-in" style="max-width: 500px; margin: 2rem auto; animation-delay: 0.1s;">
+    <div class="glass" style="padding: 2rem; border-radius: 20px;">
+        <form method="POST">
+            <div class="form-group">
+                <label>Item Name (e.g. Dell XPS 15)</label>
+                <input type="text" name="title" required class="glass" placeholder="What is this item?">
+            </div>
+            
+            <div class="form-group">
+                <label>Description / Serial Number (Optional)</label>
+                <textarea name="description" rows="3" class="glass" placeholder="Any identifying marks..."></textarea>
+            </div>
+            
+            <button type="submit" class="btn-post" style="width: 100%; border: none; padding: 1rem; cursor: pointer;">Generate QR Code <i class="fas fa-qrcode"></i></button>
+        </form>
+    </div>
+</div>
+{% endblock %}
