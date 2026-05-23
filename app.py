@@ -46,6 +46,15 @@ except Exception:
 
 # Initialize Extensions
 db.init_app(app)
+
+# If running on a serverless platform with a fresh /tmp sqlite DB, ensure tables exist
+try:
+    if os.environ.get('VERCEL'):
+        with app.app_context():
+            db.create_all()
+except Exception:
+    # Best-effort: avoid crashing import if DB creation fails
+    pass
 mail = Mail(app)
 
 
