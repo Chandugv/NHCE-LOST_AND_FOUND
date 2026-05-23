@@ -45,4 +45,12 @@ A premium, modern web application designed for New Horizon College of Engineerin
    *The app will run at `http://127.0.0.1:5000/`*
 
 ## Deployment 🌍
-This project is configured for easy deployment on **Render.com**. It includes a `Procfile`, a `runtime.txt`, and uses `gunicorn` for a production-grade server!
+This project supports both Render and Vercel deployments.
+
+### Deploy on Vercel
+1. Connect the GitHub repository `NHCE-LOST_AND_FOUND` to Vercel.
+2. Ensure the `vercel.json` file is present and `api/index.py` exists.
+3. Vercel will use the Python function at `api/index.py` and install dependencies from `requirements.txt`.
+
+### Deploy on Render
+This project also includes a `Procfile`, `runtime.txt`, and uses `gunicorn` for a production-grade server.
