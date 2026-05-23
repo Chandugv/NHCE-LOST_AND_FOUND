@@ -5,7 +5,13 @@ load_dotenv()
 
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'lost-and-found-dev-key'
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///lost_and_found.db'
+    # When running on serverless platforms (like Vercel) the filesystem is read-only
+    # except for /tmp — use a tmp sqlite DB there if no DATABASE_URL provided.
+    if os.environ.get('VERCEL'):
+        default_db = 'sqlite:////tmp/lost_and_found.db'
+    else:
+        default_db = os.environ.get('DATABASE_URL') or 'sqlite:///lost_and_found.db'
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or default_db
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # ─── Mail Configuration ──────────────────────────────────────────────────
@@ -21,6 +27,10 @@ class Config:
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER') or os.environ.get('MAIL_USERNAME') or ''
 
     # ─── Uploads ─────────────────────────────────────────────────────────────
-    UPLOAD_FOLDER = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'static/uploads')
+    # Upload folder: prefer env override; on Vercel use /tmp/uploads
+    if os.environ.get('VERCEL'):
+        UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER') or '/tmp/uploads'
+    else:
+        UPLOAD_FOLDER = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'static/uploads')
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}

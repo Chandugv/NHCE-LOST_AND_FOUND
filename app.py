@@ -24,6 +24,25 @@ import base64
 
 app = Flask(__name__)
 app.config.from_object(Config)
+# Ensure a writable instance path on serverless platforms
+try:
+    if os.environ.get('VERCEL'):
+        app.instance_path = os.environ.get('INSTANCE_PATH', '/tmp/instance')
+    # try to create instance path if possible
+    os.makedirs(app.instance_path, exist_ok=True)
+except Exception:
+    # Ignore failures creating instance path on read-only filesystems
+    pass
+
+# Ensure upload folder is writable or fallback to /tmp/uploads
+try:
+    upload_folder = app.config.get('UPLOAD_FOLDER')
+    if not os.access(upload_folder, os.W_OK):
+        app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', '/tmp/uploads')
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+except Exception:
+    # Best-effort — serverless may be read-only except /tmp
+    pass
 
 # Initialize Extensions
 db.init_app(app)
