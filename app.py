@@ -14,7 +14,11 @@ from PIL import Image
 from models import db, User, Item, Claim, Notification, PreRegisteredItem
 from config import Config
 import uuid
-import qrcode
+try:
+    import qrcode
+except Exception:
+    qrcode = None
+    print("[WARN] qrcode module not available; QR features disabled")
 from io import BytesIO
 import base64
 
@@ -350,16 +354,21 @@ def generate_qr():
         db.session.add(pre_item)
         db.session.commit()
 
-        # Generate QR code image
-        qr = qrcode.QRCode(version=1, box_size=10, border=5)
-        qr_url = url_for("scan_qr", qr_id=qr_id, _external=True)
-        qr.add_data(qr_url)
-        qr.make(fit=True)
-        img = qr.make_image(fill="black", back_color="white")
+        # Generate QR code image (only if qrcode module is available)
+        if qrcode is None:
+            flash("QR generation is not available on the server (missing dependency).", "warning")
+            qr_base64 = None
+            qr_url = url_for("scan_qr", qr_id=qr_id, _external=True)
+        else:
+            qr = qrcode.QRCode(version=1, box_size=10, border=5)
+            qr_url = url_for("scan_qr", qr_id=qr_id, _external=True)
+            qr.add_data(qr_url)
+            qr.make(fit=True)
+            img = qr.make_image(fill="black", back_color="white")
 
-        buffer = BytesIO()
-        img.save(buffer)
-        qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+            buffer = BytesIO()
+            img.save(buffer)
+            qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
         return render_template(
             "qr_code.html", qr_base64=qr_base64, title=title, qr_url=qr_url
@@ -655,15 +664,17 @@ def redeem_reward(item_id):
     # Generate dynamic ticket and base64 QR code for presentation in modal
     ticket_code = f"NHCE-{os.urandom(4).hex().upper()}-{item_id.upper()}"
     
-    # Generate QR code image
-    qr = qrcode.QRCode(version=1, box_size=10, border=3)
-    qr.add_data(f"Voucher code: {ticket_code}\nUser: {user.username}\nReward: {reward['title']}")
-    qr.make(fit=True)
-    img = qr.make_image(fill="black", back_color="white")
+    if qrcode is None:
+        qr_base64 = None
+    else:
+        qr = qrcode.QRCode(version=1, box_size=10, border=3)
+        qr.add_data(f"Voucher code: {ticket_code}\nUser: {user.username}\nReward: {reward['title']}")
+        qr.make(fit=True)
+        img = qr.make_image(fill="black", back_color="white")
 
-    buffer = BytesIO()
-    img.save(buffer)
-    qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+        buffer = BytesIO()
+        img.save(buffer)
+        qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
     
     # Save a notification detailing the redemption
     notif = Notification(
