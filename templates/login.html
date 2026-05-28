@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="form-container glass animate-in" style="max-width: 520px; margin: 0 auto;">
+    <h2 style="font-size: 2.2rem; font-weight: 800; margin-bottom: 2rem; color: var(--primary);">Login</h2>
+    <form action="{{ url_for('login') }}" method="POST">
+        <div class="form-group">
+            <label>Username</label>
+            <input type="text" name="username" placeholder="Enter your username" required>
+        </div>
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" name="password" placeholder="Enter your password" required>
+        </div>
+        <button type="submit" class="btn-submit">Login</button>
+    </form>
+    <p style="margin-top: 1.2rem; color: var(--text-dim);">Don't have an account? <a href="{{ url_for('register') }}">Register here</a>.</p>
+</div>
+{% endblock %}

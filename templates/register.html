@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="form-container glass animate-in" style="max-width: 620px; margin: 0 auto;">
+    <h2 style="font-size: 2.2rem; font-weight: 800; margin-bottom: 2rem; color: var(--primary);">Register</h2>
+    <form action="{{ url_for('register') }}" method="POST">
+        <div class="form-group">
+            <label>Username</label>
+            <input type="text" name="username" placeholder="Pick a username" required>
+        </div>
+        <div class="form-group">
+            <label>Email Address</label>
+            <input type="email" name="email" placeholder="Enter your college email" required>
+        </div>
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" name="password" placeholder="Choose a secure password" required>
+        </div>
+        <div class="form-group">
+            <label>Phone Number</label>
+            <input type="text" name="phone" placeholder="Optional phone number">
+        </div>
+        <div class="form-group">
+            <label>Department</label>
+            <input type="text" name="department" placeholder="e.g., Computer Science">
+        </div>
+        <button type="submit" class="btn-submit">Create Account</button>
+    </form>
+    <p style="margin-top: 1.2rem; color: var(--text-dim);">Already registered? <a href="{{ url_for('login') }}">Log in here</a>.</p>
+</div>
+{% endblock %}

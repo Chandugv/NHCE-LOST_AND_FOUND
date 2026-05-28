@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="glass animate-in" style="padding: 2rem; max-width: 1000px; margin: 0 auto;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start;">
+        <div>
+            <h2 style="font-size: 2.4rem; margin-bottom: 1rem; color: var(--primary);">{{ item.title }}</h2>
+            <p style="color: var(--text-dim); margin-bottom: 1rem;">Type: <strong>{{ item.item_type|capitalize }}</strong> &middot; Category: <strong>{{ item.category }}</strong></p>
+            <p style="margin-bottom: 1.5rem;">{{ item.description }}</p>
+            <div style="display: grid; gap: 1rem; margin-bottom: 1.5rem;">
+                <div><strong>Location:</strong> {{ item.location }}</div>
+                <div><strong>Status:</strong> {{ item.status|capitalize }}</div>
+                <div><strong>Reported by:</strong> {{ item.poster_email }}</div>
+                <div><strong>Posted on:</strong> {{ item.created_at.strftime('%d %b %Y, %I:%M %p') }}</div>
+            </div>
+            <a href="{{ url_for('index') }}" class="btn-submit" style="background: var(--secondary);">Back to listings</a>
+        </div>
+        <div>
+            {% if item.photo_filename %}
+                <div style="border-radius: 18px; overflow: hidden; border: 1px solid rgba(255,255,255,0.12); margin-bottom: 1.5rem;">
+                    <img src="{{ url_for('static', filename='uploads/' ~ item.photo_filename) }}" alt="{{ item.title }}" style="width: 100%; display: block; object-fit: cover; max-height: 420px;">
+                </div>
+            {% else %}
+                <div style="padding: 3rem; border-radius: 18px; background: rgba(255,255,255,0.05); text-align: center; color: var(--text-dim); margin-bottom: 1.5rem;">
+                    <i class="fas fa-image fa-3x" style="margin-bottom: 1rem;"></i>
+                    <div>No photo uploaded for this item.</div>
+                </div>
+            {% endif %}
+
+            <div class="glass" style="padding: 1.5rem;">
+                <h3 style="margin-bottom: 1rem;">Claim this item</h3>
+                <form action="{{ url_for('claim_item', item_id=item.id) }}" method="POST">
+                    <div class="form-group"><label>Your Name</label><input type="text" name="claimer_name" required></div>
+                    <div class="form-group"><label>Your Email</label><input type="email" name="claimer_email" required></div>
+                    <div class="form-group"><label>Proof / Message</label><textarea name="description_proof" rows="4" required></textarea></div>
+                    <button type="submit" class="btn-submit">Submit Claim</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
