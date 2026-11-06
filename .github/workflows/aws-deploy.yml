@@ -1,17 +1,15 @@
-name: 🚀 Deploy to AWS
+name: Deploy to AWS
 
-################################################################################
-# NHCE Lost & Found — GitHub Actions CI/CD Pipeline
+# NHCE Lost & Found -- GitHub Actions CI/CD Pipeline
 # Triggers on push to main branch
-# Steps: Lint → Test → Docker Build → ECR Push → Rolling EC2 Deploy
-################################################################################
+# Steps: Lint -> Test -> Docker Build -> ECR Push -> Rolling EC2 Deploy
 
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch:       # Allow manual trigger from GitHub Actions UI
+  workflow_dispatch:
 
 env:
   AWS_REGION: ap-south-1
@@ -20,50 +18,50 @@ env:
 
 jobs:
 
-  # ════════════════════════════════════════════════════════════════════════════
+  # ============================================================
   # Job 1: Lint & Test
-  # ════════════════════════════════════════════════════════════════════════════
+  # ============================================================
   test:
-    name: 🧪 Lint & Test
+    name: Lint and Test
     runs-on: ubuntu-latest
 
     steps:
-      - name: 📥 Checkout code
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: 🐍 Set up Python 3.11
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
 
-      - name: 📦 Install dependencies
+      - name: Install dependencies
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt flake8
 
-      - name: 🔍 Lint with flake8
+      - name: Lint with flake8 (fatal errors only)
         run: |
-          # Stop on syntax errors or undefined names
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          # Warn on style issues
+
+      - name: Lint with flake8 (style warnings)
+        run: |
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics
 
-      - name: ✅ Run pytest suite
+      - name: Run pytest suite (41 tests)
         env:
           DATABASE_URL: sqlite:///:memory:
           SECRET_KEY: ci-test-secret-key
           FLASK_ENV: testing
         run: |
-          pip install pytest
           python -m pytest tests/ -v --tb=short
 
-  # ════════════════════════════════════════════════════════════════════════════
+  # ============================================================
   # Job 2: Build & Push Docker Image to ECR
-  # (only on push to main — not on PRs)
-  # ════════════════════════════════════════════════════════════════════════════
+  # Runs only on push to main (not on PRs)
+  # ============================================================
   build-and-push:
-    name: 🐳 Build & Push to ECR
+    name: Build and Push to ECR
     runs-on: ubuntu-latest
     needs: test
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -71,68 +69,66 @@ jobs:
       ecr-registry: ${{ steps.login-ecr.outputs.registry }}
 
     steps:
-      - name: 📥 Checkout code
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: 🔑 Configure AWS credentials
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region:            ${{ env.AWS_REGION }}
 
-      - name: 🔐 Login to Amazon ECR
+      - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: 🏗️ Build, tag, and push Docker image
+      - name: Build, tag, and push Docker image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
           echo "Building image: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
-          # Build from project root using the aws/docker/Dockerfile
           docker build \
             -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
             -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
             -f aws/docker/Dockerfile \
             .
 
-          # Push both tags
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
-          echo "✅ Image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          echo "Image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
-      - name: 🔍 Scan image for vulnerabilities
+      - name: Scan image for vulnerabilities (Trivy)
         uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
           format: table
-          exit-code: 0   # Don't fail deploy on scan findings — review manually
+          exit-code: 0
           severity: HIGH,CRITICAL
 
-  # ════════════════════════════════════════════════════════════════════════════
-  # Job 3: Trigger Rolling Deployment on EC2 via ASG Instance Refresh
-  # ════════════════════════════════════════════════════════════════════════════
+  # ============================================================
+  # Job 3: Rolling Deployment via ASG Instance Refresh
+  # ============================================================
   deploy:
-    name: 🚀 Deploy to AWS EC2
+    name: Deploy to AWS EC2
     runs-on: ubuntu-latest
     needs: build-and-push
-    environment: production    # Requires approval in GitHub Environments settings
+    environment: production
 
     steps:
-      - name: 📥 Checkout code
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: 🔑 Configure AWS credentials
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region:            ${{ env.AWS_REGION }}
 
-      - name: 🔄 Trigger ASG Instance Refresh (Rolling Deploy)
+      - name: Trigger ASG Instance Refresh (Rolling Deploy)
         env:
           ASG_NAME: nhce-laf-asg
         run: |
@@ -146,7 +142,6 @@ jobs:
 
           echo "Instance refresh started: $REFRESH_ID"
 
-          # Wait for refresh to complete (up to 10 minutes)
           for i in $(seq 1 20); do
             STATUS=$(aws autoscaling describe-instance-refreshes \
               --auto-scaling-group-name "$ASG_NAME" \
@@ -154,45 +149,44 @@ jobs:
               --query "InstanceRefreshes[0].Status" \
               --output text)
 
-            echo "Attempt $i/20 — Refresh status: $STATUS"
+            echo "Attempt $i/20 -- Refresh status: $STATUS"
 
             if [ "$STATUS" = "Successful" ]; then
-              echo "✅ Deployment successful!"
+              echo "Deployment successful!"
               break
             elif [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ]; then
-              echo "❌ Deployment failed with status: $STATUS"
+              echo "Deployment failed with status: $STATUS"
               exit 1
             fi
 
             sleep 30
           done
 
-      - name: 🔍 Verify deployment health
+      - name: Verify deployment health via ALB
         run: |
           ALB_DNS=$(aws elbv2 describe-load-balancers \
             --names nhce-laf-alb \
             --query "LoadBalancers[0].DNSName" \
             --output text)
 
-          echo "Testing app at: http://$ALB_DNS:8080"
+          echo "Testing app at: http://$ALB_DNS"
 
-          # Retry for 2 minutes
           for i in $(seq 1 12); do
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://$ALB_DNS:8080/" || echo "000")
-            echo "Attempt $i — HTTP $HTTP_CODE"
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://$ALB_DNS/" || echo "000")
+            echo "Attempt $i -- HTTP $HTTP_CODE"
             if [[ "$HTTP_CODE" =~ ^(200|301|302)$ ]]; then
-              echo "✅ App is healthy! Deployment complete."
-              echo "🌐 Live at: http://$ALB_DNS:8080"
+              echo "App is healthy! Deployment complete."
+              echo "Live at: http://$ALB_DNS"
               break
             fi
             sleep 10
           done
 
-      - name: 📢 Deployment summary
+      - name: Deployment summary
         if: always()
         run: |
           echo "=================================="
-          echo "🎒 NHCE Lost & Found Deployment"
+          echo "NHCE Lost and Found Deployment"
           echo "=================================="
           echo "Commit:    ${{ github.sha }}"
           echo "Branch:    ${{ github.ref_name }}"
