@@ -27,21 +27,6 @@ jobs:
     name: 🧪 Lint & Test
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres:15-alpine
-        env:
-          POSTGRES_DB: nhce_test
-          POSTGRES_USER: test_user
-          POSTGRES_PASSWORD: test_pass
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
@@ -55,7 +40,7 @@ jobs:
       - name: 📦 Install dependencies
         run: |
           pip install --upgrade pip
-          pip install -r requirements.txt psycopg2-binary flake8
+          pip install -r requirements.txt flake8
 
       - name: 🔍 Lint with flake8
         run: |
@@ -64,13 +49,14 @@ jobs:
           # Warn on style issues
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics
 
-      - name: ✅ Run Flask app smoke test
+      - name: ✅ Run pytest suite
         env:
-          DATABASE_URL: postgresql://test_user:test_pass@localhost:5432/nhce_test
+          DATABASE_URL: sqlite:///:memory:
           SECRET_KEY: ci-test-secret-key
           FLASK_ENV: testing
         run: |
-          python -c "from app import app; print('✅ Flask app imports successfully')"
+          pip install pytest
+          python -m pytest tests/ -v --tb=short
 
   # ════════════════════════════════════════════════════════════════════════════
   # Job 2: Build & Push Docker Image to ECR
@@ -119,11 +105,12 @@ jobs:
           echo "✅ Image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
       - name: 🔍 Scan image for vulnerabilities
-        uses: aws-actions/amazon-ecr-security-scan@v1
+        uses: aquasecurity/trivy-action@0.28.0
         with:
-          repository: ${{ env.ECR_REPOSITORY }}
-          tag: ${{ env.IMAGE_TAG }}
-        continue-on-error: true   # Don't fail deploy on scan findings (review manually)
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+          format: table
+          exit-code: 0   # Don't fail deploy on scan findings — review manually
+          severity: HIGH,CRITICAL
 
   # ════════════════════════════════════════════════════════════════════════════
   # Job 3: Trigger Rolling Deployment on EC2 via ASG Instance Refresh

@@ -6,4 +6,6 @@ Pillow>=10.3.0
 python-dotenv==1.0.1
 gunicorn==22.0.0
 qrcode==8.2
+# Testing
+pytest>=8.0
 
