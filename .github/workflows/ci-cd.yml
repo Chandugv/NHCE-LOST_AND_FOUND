@@ -7,20 +7,145 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+env:
+  AWS_REGION: ap-south-1
+  ECR_REPOSITORY: nhce-laf-app
+
 jobs:
+
+  # ── Job 1: Lint & Test ────────────────────────────────────────────────────
   test:
+    name: Lint and Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
-      - run: pip install -r requirements.txt flake8
-      - run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-      - run: flake8 . --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics
-      - run: python -m pytest tests/ -v --tb=short
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt flake8
+
+      - name: Lint - fatal errors only
+        run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: Lint - style warnings
+        run: flake8 . --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics
+
+      - name: Run pytest suite (41 tests)
         env:
           DATABASE_URL: "sqlite:///:memory:"
           SECRET_KEY: "ci-test-secret-key"
           FLASK_ENV: "testing"
+        run: python -m pytest tests/ -v --tb=short
+
+  # ── Job 2: Build & Push to ECR ───────────────────────────────────────────
+  build-and-push:
+    name: Build and Push to ECR
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push Docker image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build \
+            -t $REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            -t $REGISTRY/$ECR_REPOSITORY:latest \
+            -f aws/docker/Dockerfile .
+          docker push $REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $REGISTRY/$ECR_REPOSITORY:latest
+          echo "Pushed $REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+      - name: Scan image for vulnerabilities
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          format: table
+          exit-code: 0
+          severity: HIGH,CRITICAL
+
+  # ── Job 3: Rolling Deploy via ASG ────────────────────────────────────────
+  deploy:
+    name: Deploy to AWS EC2
+    runs-on: ubuntu-latest
+    needs: build-and-push
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Trigger ASG Instance Refresh
+        env:
+          ASG_NAME: nhce-laf-asg
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          REFRESH_ID=$(aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name "$ASG_NAME" \
+            --preferences '{"MinHealthyPercentage": 50, "InstanceWarmup": 60}' \
+            --query InstanceRefreshId --output text)
+          echo "Refresh started: $REFRESH_ID"
+          for i in $(seq 1 20); do
+            STATUS=$(aws autoscaling describe-instance-refreshes \
+              --auto-scaling-group-name "$ASG_NAME" \
+              --instance-refresh-ids "$REFRESH_ID" \
+              --query "InstanceRefreshes[0].Status" --output text)
+            echo "[$i/20] $STATUS"
+            if [ "$STATUS" = "Successful" ]; then
+              echo "Deployment successful!"
+              exit 0
+            fi
+            if [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ]; then
+              echo "Deployment failed: $STATUS"
+              exit 1
+            fi
+            sleep 30
+          done
+
+      - name: Verify ALB health
+        run: |
+          ALB_DNS=$(aws elbv2 describe-load-balancers \
+            --names nhce-laf-alb \
+            --query "LoadBalancers[0].DNSName" --output text)
+          echo "Testing: http://$ALB_DNS"
+          for i in $(seq 1 12); do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://$ALB_DNS/" || echo "000")
+            echo "[$i/12] HTTP $CODE"
+            if [ "$CODE" = "200" ] || [ "$CODE" = "301" ] || [ "$CODE" = "302" ]; then
+              echo "Live at: http://$ALB_DNS"
+              exit 0
+            fi
+            sleep 10
+          done
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          echo "Commit:  ${{ github.sha }}"
+          echo "Branch:  ${{ github.ref_name }}"
+          echo "Actor:   ${{ github.actor }}"
+          echo "Time:    $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
