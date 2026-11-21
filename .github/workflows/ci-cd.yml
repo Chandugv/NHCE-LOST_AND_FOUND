@@ -1,9 +1,5 @@
 name: Deploy to AWS
 
-# NHCE Lost & Found -- GitHub Actions CI/CD Pipeline
-# Triggers on push to main branch
-# Steps: Lint -> Test -> Docker Build -> ECR Push -> Rolling EC2 Deploy
-
 on:
   push:
     branches: [ main ]
@@ -18,9 +14,6 @@ env:
 
 jobs:
 
-  # ============================================================
-  # Job 1: Lint & Test
-  # ============================================================
   test:
     name: Lint and Test
     runs-on: ubuntu-latest
@@ -41,32 +34,23 @@ jobs:
           pip install -r requirements.txt flake8
 
       - name: Lint with flake8 (fatal errors only)
-        run: |
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
 
       - name: Lint with flake8 (style warnings)
-        run: |
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics
+        run: flake8 . --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics
 
-      - name: Run pytest suite (41 tests)
+      - name: Run pytest suite
         env:
           DATABASE_URL: sqlite:///:memory:
           SECRET_KEY: ci-test-secret-key
           FLASK_ENV: testing
-        run: |
-          python -m pytest tests/ -v --tb=short
+        run: python -m pytest tests/ -v --tb=short
 
-  # ============================================================
-  # Job 2: Build & Push Docker Image to ECR
-  # Runs only on push to main (not on PRs)
-  # ============================================================
   build-and-push:
     name: Build and Push to ECR
     runs-on: ubuntu-latest
     needs: test
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    outputs:
-      ecr-registry: ${{ steps.login-ecr.outputs.registry }}
 
     steps:
       - name: Checkout code
@@ -75,9 +59,9 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region:            ${{ env.AWS_REGION }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: login-ecr
@@ -87,20 +71,15 @@ jobs:
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          echo "Building image: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-
           docker build \
             -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
             -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
-            -f aws/docker/Dockerfile \
-            .
-
+            -f aws/docker/Dockerfile .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          echo "Pushed $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
-          echo "Image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-
-      - name: Scan image for vulnerabilities (Trivy)
+      - name: Scan image for vulnerabilities
         uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
@@ -108,9 +87,6 @@ jobs:
           exit-code: 0
           severity: HIGH,CRITICAL
 
-  # ============================================================
-  # Job 3: Rolling Deployment via ASG Instance Refresh
-  # ============================================================
   deploy:
     name: Deploy to AWS EC2
     runs-on: ubuntu-latest
@@ -124,59 +100,46 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region:            ${{ env.AWS_REGION }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Trigger ASG Instance Refresh (Rolling Deploy)
+      - name: Trigger ASG Instance Refresh
         env:
           ASG_NAME: nhce-laf-asg
         run: |
-          echo "Starting rolling deployment with image tag: $IMAGE_TAG"
-
           REFRESH_ID=$(aws autoscaling start-instance-refresh \
             --auto-scaling-group-name "$ASG_NAME" \
             --preferences '{"MinHealthyPercentage": 50, "InstanceWarmup": 60}' \
-            --query "InstanceRefreshId" \
-            --output text)
-
-          echo "Instance refresh started: $REFRESH_ID"
-
+            --query "InstanceRefreshId" --output text)
+          echo "Refresh started: $REFRESH_ID"
           for i in $(seq 1 20); do
             STATUS=$(aws autoscaling describe-instance-refreshes \
               --auto-scaling-group-name "$ASG_NAME" \
               --instance-refresh-ids "$REFRESH_ID" \
-              --query "InstanceRefreshes[0].Status" \
-              --output text)
-
-            echo "Attempt $i/20 -- Refresh status: $STATUS"
-
+              --query "InstanceRefreshes[0].Status" --output text)
+            echo "Attempt $i/20 - Refresh status: $STATUS"
             if [ "$STATUS" = "Successful" ]; then
               echo "Deployment successful!"
               break
             elif [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ]; then
-              echo "Deployment failed with status: $STATUS"
+              echo "Deployment failed: $STATUS"
               exit 1
             fi
-
             sleep 30
           done
 
-      - name: Verify deployment health via ALB
+      - name: Verify ALB health
         run: |
           ALB_DNS=$(aws elbv2 describe-load-balancers \
             --names nhce-laf-alb \
-            --query "LoadBalancers[0].DNSName" \
-            --output text)
-
-          echo "Testing app at: http://$ALB_DNS"
-
+            --query "LoadBalancers[0].DNSName" --output text)
+          echo "Testing: http://$ALB_DNS"
           for i in $(seq 1 12); do
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://$ALB_DNS/" || echo "000")
-            echo "Attempt $i -- HTTP $HTTP_CODE"
+            echo "Attempt $i - HTTP $HTTP_CODE"
             if [[ "$HTTP_CODE" =~ ^(200|301|302)$ ]]; then
-              echo "App is healthy! Deployment complete."
-              echo "Live at: http://$ALB_DNS"
+              echo "App healthy. Live at: http://$ALB_DNS"
               break
             fi
             sleep 10
@@ -185,11 +148,8 @@ jobs:
       - name: Deployment summary
         if: always()
         run: |
-          echo "=================================="
-          echo "NHCE Lost and Found Deployment"
-          echo "=================================="
+          echo "NHCE Lost and Found - Deployment Summary"
           echo "Commit:    ${{ github.sha }}"
           echo "Branch:    ${{ github.ref_name }}"
           echo "Triggered: ${{ github.actor }}"
           echo "Time:      $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-          echo "=================================="
